@@ -1,0 +1,6 @@
+pip3 install PyQt5
+python3 -m pip install PyQtChart
+sudo apt-get install libxcb-xinerama0
+
+
+pyuic5 ./fmsreplay.ui -o ./fmsreplay.py
