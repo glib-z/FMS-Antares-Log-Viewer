@@ -9,11 +9,16 @@ from log_data import LogData
 
 
 class MainWindow(QMainWindow, Ui_FMSReplay):
-    Success = False
 
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        self.Success = False
         self.setupUi(self)
+        self.graph = {2: self.graphView_F,
+                      3: self.graphView_O,
+                      4: self.graphView_FU,
+                      5: self.graphView_OU,
+                      6: self.graphView_TFU}
         self.pBtn_Open.pressed.connect(self.open_log)
         self.lnEd_SetProgStartTime.editingFinished.connect(self.prog_start_time_correction)
         self.pBtn_ZoomReset.clicked.connect(self.zoom_reset)
@@ -34,17 +39,7 @@ class MainWindow(QMainWindow, Ui_FMSReplay):
         Reset zoom for chart in the current tab
         :return:
         """
-        index = self.tabWidget.currentIndex()
-        if index == 2:
-            self.graphView_F.chart().zoomReset()
-        if index == 3:
-            self.graphView_O.chart().zoomReset()
-        if index == 4:
-            self.graphView_FU.chart().zoomReset()
-        if index == 5:
-            self.graphView_OU.chart().zoomReset()
-        if index == 6:
-            self.graphView_TFU.chart().zoomReset()
+        self.graph[self.tabWidget.currentIndex()].chart().zoomReset()
 
     def open_log(self):
         """Reads FMS log file"""
@@ -77,11 +72,8 @@ class MainWindow(QMainWindow, Ui_FMSReplay):
         self.tblWidget.horizontalHeader().hide()
         self.tblWidget.setRowCount(0)
         self.pTxtEd_Report.clear()
-        self.graphView_F.hide()
-        self.graphView_FU.hide()
-        self.graphView_O.hide()
-        self.graphView_OU.hide()
-        self.graphView_TFU.hide()
+        for g in self.graph.values():
+            g.hide()
 
     def visualization(self):
         """
@@ -160,14 +152,14 @@ class MainWindow(QMainWindow, Ui_FMSReplay):
         self.pTxtEd_Report.clear()
         if not self.Success:
             self.pTxtEd_Report.appendPlainText('\n\t\tTHE LAUNCH HAS BEEN CANCELED!\n')
-        rep = "\n********************************************************************************\n" \
-              "Parameter\t\t\t\t  UTC time\t\t Countdown\n" \
-              "********************************************************************************\n"
+        # header
+        rep = "*"*80 + "\nParameter\t\t\t\t  UTC time\t\t Countdown\n" + "*" * 80 + '\n'
+        # parameters for report
         for item in ("Program start", "Power on OE", "OE power on", "FMS ready",
                      "GHe Bottles submerged", "Average temperature", "Level STOP F",
                      "Attention_F", "Stop_F", "Attention_O", "Stop_O", "Power off OE"):
             rep += self.report_line(item)
-        rep += "********************************************************************************\n"
+        rep += "*" * 80 + '\n'
         work_ge = self.ld.time_fms[self.get_first_entry_position(0, "Power off OE", 1)] - self.ld.log_start
         rep += f'\nThe operation duration of the FMS GE in the prelaunch operations:\t {str(work_ge)[:-7]}\n'
         work_oe = self.ld.time_fms[self.get_first_entry_position(0, "Power off OE", 1)] \
@@ -211,7 +203,7 @@ class MainWindow(QMainWindow, Ui_FMSReplay):
                 return st + f'\t\t{self.ld.time_utc[pos].strftime("%H:%M:%S.%f")[:-3]}\t' \
                             f'{self.ld.time_countdown[pos].strftime("-%H:%M:%S.%f")[:-3]}\n'
 
-        return f'Параметр <{param_name}> не найден!\n'
+        return f'The parameter <{param_name}> is not funded!\n'
 
     def get_first_entry_position(self, start, param_name, value):
         """
@@ -296,6 +288,9 @@ class MainWindow(QMainWindow, Ui_FMSReplay):
         start_time = None
         got_start = False
         for i in range(0, len(self.ld.param)):
+            if "Power off OE".count(self.ld.param[i]):
+                series.append(QDateTime(self.ld.time_utc[i]).toMSecsSinceEpoch(), prev_value)
+                break
             if "Average temperature".count(self.ld.param[i]) and float(self.ld.value[i]) >= 0:
                 qdt = QDateTime(self.ld.time_utc[i])
                 curr_value = float(self.ld.value[i])
